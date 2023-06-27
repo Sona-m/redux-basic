@@ -1,0 +1,276 @@
+useReducer Hook - alternative to use state
+produce state 
+useful when future state values depend on the current state
+ 
+
+const [state, dispatch] = useReducer(reducer , {object})
+object - {count : 0 , valueToAdd : 0}
+
+state - data , change over time
+dispatch - function to change the data
+
+{object} - provide initial value to state
+by passing 2nd argument to useReducer as a object
+
+use State - each piece to state defined as a seperate variable
+count, valuetoadd
+
+useReducer - All state for the whole component defined in a single object
+{
+count : 10,
+valueToAdd : 20
+}
+
+
+dispatch() - rerender
+when we call dispatch function , its going to find reducer function.
+reducer - two arguments (state , action)
+state - current state of component // data
+action - value of this argument is whatever you pass in dispatch
+returns updated state
+
+
+Rules around Reducer Functions
+
+1. Whatever you return will be your new state
+2. if you return nothing , then your state will be undefined
+3. No async/await , no requests , no promises , no outside variables
+we want our reducer functions to only operate  on incoming argument of state and actions
+4. dont directly modify the state object
+
+dont do
+const reducer = (state , action)=>{
+    state.count = state.count+1
+    return state;
+}
+
+Do this
+const reducer = (state , action)=>{
+    return {   // create a new obj
+          ...state,   // copy paste prv object
+       count : state.count+1  // override property
+           };
+}
+
+
+do this if you want to reset state
+
+const reducer = (state , action)=>{
+    return {   // create a new obj
+       count : 0 ,
+       valueToAdd : 0                // override property
+           };
+}
+
+// as we know we are managing multiple state with useReducer , so the problem is how do we know that which state is causing to call reducer function and do work
+the ans is 
+when we need to modify state , we will call dispatch and always pass in an 'action' object
+
+The 'action ' object will always have a Type property that is a string , this helps tell the reducer what state update it needs to make
+
+if we need to communicate some data to the reducer , it will be placed on the payload property of the action object
+
+dispatch({
+type : 'change-value',
+payload : value
+})
+
+
+const reducer = (state , action) =>{
+ if(action.type === 'change-value'){
+   return{
+      ...state,
+     valueToAdd : action.payload
+    }
+   }
+  return state;
+}
+
+// replace if with switch
+
+switch(action.type){
+ case INCREMENT_COUNT :
+  return{
+     ...state,
+     count : state.count+1,
+     };
+  // another case
+}
+
+immer - library that lets you write code to directly modify state
+// no need to make a new object every time
+npm install immer
+npm run start
+
+import produce from 'immer';
+
+const [state, dispatch] = useReducer(produce(reducer) , {object})
+
+switch(action.type){
+ case INCREMENT_COUNT :
+     state.count = state.count+1;
+     return;
+// another case
+}
+
+
+
+*******************Redux Tool Kit****************************************
+
+npm install react-redux
+
+Redux is a lib for managing state.
+
+RTK is a wrapper around plain redux
+it simplifies the action type creation process
+
+store - is an object that will hold ll of our state
+
+keys - keys for this object are set when the store is created
+values are produced by the individual reducers
+
+
+store creation
+
+const store = configureStore({
+   reducer : {songs : songsSlice.reducer}   // this object determines what key our big state object has
+})                                 // this reducer is a function that wraps up many different reducers.
+
+// get songsSlice initial proverty for value
+redux store
+
+{
+ songs : []  // Produced  by song reducer
+}
+
+
+slices automatically create reducers and action types
+save us from writing many boiler plate code
+slices
+1. define some initial state
+2. combines mini-reducers into a big reducer
+3. creates a set of 'action creator' functions
+
+const songsSlice = createSlice ({
+    name : 'song',
+    initialState :[],
+     reducers : {
+           addSong(state , action) { // state-array
+               // state is not the big state object in the store, it is the piece of state managed by this reducer
+             state.push(action.payload) immer lib - directly mutate state
+           }     // mini reducers - think of as individual cases in switch statement
+         removeSong(state , action) {}
+    }
+
+})
+
+// each slice manage its own individual state
+// pattern that create slice applies to know which of the reducer to run   // 'song' + '/' + 'addSong' = 'song/addSong'
+// store.dispatch({
+        type : 'song/addSong',
+        payload : "new song"
+}) 
+
+
+action Creators
+----------------
+whenever we create slices , createSlice function is goin to look all these minireducer function names
+addSong ,removeSong
+in response to each those it going to create a new object ,  inside this object , it will define each function for each reducers
+and these functions are called as action creators.
+
+{
+   addSong(payload){
+     return{
+      type : 'songs/addSong'
+      payload : payload
+      };
+   },
+   
+   removeSong(payload){
+     return{
+      type : 'songs/removeSong'
+      payload : payload
+      };
+   },
+
+}
+
+// set of functions created for us automatically
+// when called , they return an action that we can dispatch
+
+// songSlice.actions - object
+
+ connecting appln to redux sotre
+----------------------------------
+redux store
+
+1. state
+2. reducers
+3. dispatch functions
+
+application
+
+need dispatch fn to change state
+
+connecting react to redux
+1. export the store from whatever file it is created in
+2. import the store into the root 'index.js'
+3. import Provider from the ' react-redux' lib
+4. wrap the app component with the Provider , pass the store to the Provider
+
+Now store creation and connections are done.
+now we have to update the state
+
+to update the state
+we are going to create action
+and dispatch it
+that gonna cause reducer to run and we will get our update state
+
+
+1. Add a reducer to one of your slices that changes state in some particular way
+ex - addSong in songSlice
+
+2. Export the action creator that the slice automatically creates
+ex -export const {addSong} = songSlice.actions;
+
+3. find the component that you want to dispatch from
+ex - component from where you want to update ur state , songPlaylist.js
+
+4. import the action creator function and 'useDispatch' from 'react-rdux' in that component
+ex - import {useDispatch} from 'react-redux'
+import {addSong} from "../redux"
+
+5.call the useDispatch hook to get access to the dispatch function present in redux store
+const dispatch = useDispatch();
+
+6.when the user does something , call the action creator to get an action , then dispatch it
+ex- running event handler , call action creater func - addSong , that gonna gives an action object
+then we are going to take action object and dispatch it
+
+these action objects are sent to our reducers  , it gonna run and update our state
+
+accessing state so that you can get the data
+----------------------------------------------
+
+1. find the component that needs to access some state
+ex - songPlaylist.js
+
+2. import 'useSelector' hook from 'react-redux'
+import {useSelector} from 'react-redux'
+this hook allow us to reach redux store and access data from inside of it
+
+3. call the hook , passing in a selector function
+const songPlaylist = useSelector()
+pass a selector function , that goes through entire state of our store
+but we need one state , so we gonna return state.songs
+
+const songPlaylist = useSelector((state) => {
+    return state.songs;
+});
+ // state - object , all the states with in entire redux store
+
+4. use the state , Anytime state changes , the component will automatically rerender
+
+
+
